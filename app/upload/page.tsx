@@ -74,30 +74,27 @@ const UploadPage = () => {
 
     setLoading(true);
     try {
-      // Simulate upload processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const base64Image = await convertToBase64(selectedFile);
       
-      // Mock result for demonstration
-      const mockResult = {
-        detected_language: 'EN',
-        extracted_text: 'Prescription text would appear here...',
-        medications: [
-          {
-            name: 'Sample Medication',
-            dosage: '500mg',
-            frequency: 'Twice daily',
-            with_food: true,
-            plain_language_explanation: 'This medication helps manage your condition.',
-            why_timing_matters: 'Taking it at consistent times maintains stable levels in your body.',
-            timing: ['morning', 'evening'],
-            warnings: ['Take with food to reduce stomach upset']
-          }
-        ]
-      };
+      // Call our API route instead of direct HF
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ imageBase64: base64Image }),
+      });
+
+      const data = await response.json();
+      console.log('API Response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to analyze prescription');
+      }
       
-      setResult(mockResult);
+      setResult(data);
       console.log('Prescription analyzed successfully!');
-      console.log('📋 Analysis result:', mockResult);
+      console.log('📋 Analysis result:', data);
     } catch (error) {
       console.error('Upload error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to analyze prescription';
@@ -192,15 +189,14 @@ const UploadPage = () => {
             <div className="bg-white rounded-3xl border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-fraunces text-3xl font-semibold text-stone-900">
-                  Extracted Text
+                  Analysis Results
                 </h2>
                 <div className="flex gap-2">
                   <span className="bg-stone-100 text-stone-700 px-4 py-2 rounded-full text-sm font-jakarta font-medium">
-                    📄 Detected: {result.detected_language?.toUpperCase() || 'Unknown'}
+                    📄 Detected: {result.detected_language?.toUpperCase() || 'Unknown'} ({result.detected_language_name || 'Unknown'})
                   </span>
                 </div>
               </div>
-              <p className="text-stone-700 font-jakarta whitespace-pre-wrap">{result.extracted_text}</p>
             </div>
 
             <div>
@@ -217,15 +213,12 @@ const UploadPage = () => {
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <h3 className="font-fraunces text-2xl font-semibold text-stone-900">
-                          {medication.name}
+                          {medication.name_english}
                         </h3>
-                        <p className="text-stone-600 font-jakarta mt-1">
-                          {medication.dosage} • {medication.frequency}
-                        </p>
                       </div>
                       {medication.with_food && (
                         <span className="bg-clay/10 text-clay px-4 py-2 rounded-full text-sm font-jakarta font-medium">
-                          🍽️ Take with food
+                          🍽️ {medication.with_food}
                         </span>
                       )}
                     </div>
@@ -233,38 +226,28 @@ const UploadPage = () => {
                     <div className="space-y-4">
                       <div>
                         <h4 className="text-sm font-bold uppercase tracking-widest text-stone-500 font-jakarta mb-2">
-                          💊 What it does
+                          💊 Description
                         </h4>
                         <p className="text-stone-700 font-jakarta leading-relaxed">
-                          {medication.plain_language_explanation}
+                          {medication.dicription}
                         </p>
                       </div>
 
                       <div className="bg-sage/5 p-4 rounded-2xl">
                         <h4 className="text-sm font-bold uppercase tracking-widest text-sage font-jakarta mb-2">
-                          ⏰ Why timing matters
+                          ⚕️ Importance
                         </h4>
                         <p className="text-stone-700 font-jakarta leading-relaxed">
-                          {medication.why_timing_matters}
+                          {medication.megication_importance}
                         </p>
                       </div>
 
-                      {medication.warnings && medication.warnings.length > 0 && (
-                        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-2xl">
-                          <h4 className="text-sm font-bold uppercase tracking-widest text-yellow-700 font-jakarta mb-2">
-                            ⚠️ Important Safety
-                          </h4>
-                          {medication.warnings?.map((warning: string, idx: number) => (
-                            <p key={idx} className="text-stone-700 font-jakarta">
-                              {warning}
-                            </p>
-                          ))}
-                        </div>
-                      )}
-
                       {medication.timing && medication.timing.length > 0 && (
                         <div className="flex flex-wrap gap-2">
-                          {medication.timing?.map((time: string, idx: number) => (
+                          <span className="text-sm font-bold uppercase tracking-widest text-stone-500 font-jakarta mr-2">
+                            Timing:
+                          </span>
+                          {medication.timing.map((time: string, idx: number) => (
                             <span
                               key={idx}
                               className="bg-stone-100 text-stone-700 px-3 py-1 rounded-full text-sm font-jakarta"
